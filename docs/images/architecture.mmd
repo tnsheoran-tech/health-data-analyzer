@@ -1,4 +1,4 @@
-flowchart LR
+flowchart TB
     A[("Raw dataset<br/>CSV / JSON")] --> B["data_loader<br/>read + schema check"]
     G["data_generator<br/>seeded simulation"] -.creates.-> A
     B --> C["preprocessing<br/>types, categories, ranges,<br/>duplicates, imputation"]
