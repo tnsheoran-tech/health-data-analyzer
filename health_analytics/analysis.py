@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from health_analytics.config import NUMERIC_COLUMNS
+from health_analytics.config import MEASURE_COLUMNS
 
 
 def _require_columns(df, columns):
@@ -12,7 +12,7 @@ def _require_columns(df, columns):
         raise ValueError(f"Column(s) not found: {', '.join(missing)}")
 
 
-def summary_statistics(df, columns=NUMERIC_COLUMNS):
+def summary_statistics(df, columns=MEASURE_COLUMNS):
     """Compute descriptive statistics for numeric columns.
 
     Parameters
@@ -84,27 +84,33 @@ def group_summary(df, by, value):
     return grouped.round(2)
 
 
-def diagnosis_rate_by_group(df, group_column):
-    """Percentage of each diagnosis within every level of a grouping column.
+def outcome_rate_by_group(df, group_column):
+    """Percentage of diabetic patients within every level of a column.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        Cleaned data with a ``diagnosis`` column.
+        Cleaned data with an ``outcome`` column (0 or 1).
     group_column : str
-        For example ``"age_group"`` or ``"smoker"``.
+        For example ``"age_group"`` or ``"bmi_category"``.
 
     Returns
     -------
     pandas.DataFrame
-        Rows = group levels, columns = diagnoses, values sum to 100 per row.
+        Columns ``patients`` and ``diabetic_percent`` per group level.
     """
-    _require_columns(df, [group_column, "diagnosis"])
-    table = pd.crosstab(df[group_column], df["diagnosis"], normalize="index")
-    return (table * 100).round(1)
+    _require_columns(df, [group_column, "outcome"])
+    grouped = df.groupby(group_column)["outcome"]
+    table = pd.DataFrame(
+        {
+            "patients": grouped.size(),
+            "diabetic_percent": (grouped.mean() * 100).round(1),
+        }
+    )
+    return table
 
 
-def correlation_matrix(df, columns=NUMERIC_COLUMNS):
+def correlation_matrix(df, columns=MEASURE_COLUMNS):
     """Pearson correlation matrix of numeric columns.
 
     Parameters
@@ -124,28 +130,6 @@ def correlation_matrix(df, columns=NUMERIC_COLUMNS):
     return df[columns].corr(method="pearson").round(3)
 
 
-def detect_outliers_iqr(series, k=1.5):
-    """Count outliers using the Tukey IQR rule.
-
-    Parameters
-    ----------
-    series : pandas.Series
-        Numeric data.
-    k : float
-        Fence multiplier (1.5 is the conventional choice).
-
-    Returns
-    -------
-    dict
-        ``lower``, ``upper`` fences and ``n_outliers``.
-    """
-    q1, q3 = series.quantile([0.25, 0.75])
-    iqr = q3 - q1
-    lower, upper = q1 - k * iqr, q3 + k * iqr
-    n_out = int(((series < lower) | (series > upper)).sum())
-    return {"lower": float(lower), "upper": float(upper), "n_outliers": n_out}
-
-
 def compute_key_findings(df):
     """Produce plain-language findings derived from the data.
 
@@ -161,43 +145,42 @@ def compute_key_findings(df):
     """
     findings = []
     n = len(df)
+    diabetic = int(df["outcome"].sum())
     findings.append(
-        f"The cleaned dataset holds {n} unique patients with a mean age of "
-        f"{df['age'].mean():.1f} years (median {df['age'].median():.0f})."
+        f"The dataset holds {n} patients with a mean age of "
+        f"{df['age'].mean():.1f} years; {diabetic} "
+        f"({diabetic / n * 100:.1f}%) have diabetes."
     )
 
-    diag = frequency_distribution(df, "diagnosis")
-    top = diag.index[0]
+    glucose = group_summary(df, "outcome_label", "glucose")["mean"]
     findings.append(
-        f"'{top}' is the most frequent diagnosis "
-        f"({diag.loc[top, 'percent']:.1f}% of patients)."
+        f"Diabetic patients have a mean glucose of "
+        f"{glucose['Diabetic']:.1f} mg/dL versus "
+        f"{glucose['Non-diabetic']:.1f} for non-diabetic patients."
     )
 
-    smoker_chol = group_summary(df, "smoker", "cholesterol")["mean"]
-    if {"Yes", "No"} <= set(smoker_chol.index):
-        gap = smoker_chol["Yes"] - smoker_chol["No"]
-        findings.append(
-            f"Smokers average {gap:+.1f} mg/dL cholesterol relative to "
-            f"non-smokers ({smoker_chol['Yes']:.1f} vs "
-            f"{smoker_chol['No']:.1f})."
-        )
-
-    r_bmi_glu = df["bmi"].corr(df["glucose"])
-    r_age_sbp = df["age"].corr(df["systolic_bp"])
+    bmi = group_summary(df, "outcome_label", "bmi")["mean"]
     findings.append(
-        f"BMI and glucose are positively correlated (r = {r_bmi_glu:.2f}); "
-        f"age and systolic blood pressure show r = {r_age_sbp:.2f}."
+        f"Mean BMI is {bmi['Diabetic']:.1f} for diabetic and "
+        f"{bmi['Non-diabetic']:.1f} for non-diabetic patients."
     )
 
-    visits = group_summary(df, "diagnosis", "annual_visits")["mean"]
+    rates = outcome_rate_by_group(df, "age_group")["diabetic_percent"]
     findings.append(
-        f"Annual visits are highest for '{visits.idxmax()}' "
-        f"({visits.max():.2f} per year) and lowest for "
-        f"'{visits.idxmin()}' ({visits.min():.2f})."
+        f"The diabetes rate is highest in age group '{rates.idxmax()}' "
+        f"({rates.max():.1f}%) and lowest in '{rates.idxmin()}' "
+        f"({rates.min():.1f}%)."
     )
 
-    obese_share = (df["bmi_category"] == "Obese").mean() * 100
+    corr = df[list(MEASURE_COLUMNS) + ["outcome"]].corr()["outcome"]
+    corr = corr.drop("outcome")
     findings.append(
-        f"{obese_share:.1f}% of patients fall in the Obese BMI band."
+        f"Glucose has the strongest correlation with diabetes status "
+        f"(r = {corr['glucose']:.2f}); the weakest of all measurements is "
+        f"{corr.abs().idxmin().replace('_', ' ')} "
+        f"(r = {corr[corr.abs().idxmin()]:.2f})."
     )
+
+    obese = (df["bmi_category"] == "Obese").mean() * 100
+    findings.append(f"{obese:.1f}% of patients fall in the Obese BMI band.")
     return findings
