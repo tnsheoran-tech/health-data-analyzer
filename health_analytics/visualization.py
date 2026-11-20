@@ -134,13 +134,12 @@ def plot_age_distribution(df, path):
     ax.hist(df["age"], bins=range(20, 86, 5), color=BLUE,
             edgecolor=SURFACE, linewidth=1.5)
     mean, median = df["age"].mean(), df["age"].median()
-    ax.axvline(mean, color=INK, linewidth=1.5, linestyle="-")
-    ax.axvline(median, color=INK_SECONDARY, linewidth=1.5, linestyle="--")
-    top = ax.get_ylim()[1]
-    ax.text(mean + 0.8, top * 0.96, f"Mean {mean:.1f}", color=INK,
-            fontsize=9, va="top")
-    ax.text(median - 0.8, top * 0.88, f"Median {median:.0f}",
-            color=INK_SECONDARY, fontsize=9, va="top", ha="right")
+    ax.axvline(mean, color=INK, linewidth=1.5, linestyle="-",
+               label=f"Mean {mean:.1f}")
+    ax.axvline(median, color=INK_SECONDARY, linewidth=1.5, linestyle="--",
+               label=f"Median {median:.0f}")
+    ax.legend(frameon=False, loc="upper right", fontsize=9.5,
+              labelcolor=INK_SECONDARY)
     return _finish(fig, ax, "Age distribution of patients",
                    f"{len(df)} patients, 5-year bins", "Age (years)",
                    "Number of patients", path)
