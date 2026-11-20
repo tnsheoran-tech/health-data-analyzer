@@ -1,0 +1,7 @@
+flowchart LR
+    R1["1. Requirements<br/>problem, FR / NFR"] --> D1["2. Design<br/>modules, data flow"]
+    D1 --> I1["3. Implementation<br/>Python modules, PEP 8"]
+    I1 --> T1["4. Testing<br/>28 pytest tests"]
+    T1 --> P1["5. Deployment<br/>GitHub, venv, README"]
+    T1 -. defects .-> I1
+    P1 -. feedback .-> R1
