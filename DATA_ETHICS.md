@@ -1,25 +1,19 @@
 # Data Ethics Statement
 
-Health data is among the most sensitive categories of personal data. Even though this project uses simulated records, it is designed as if real data could be substituted, so the following principles are built in.
-
 ## 1. Data privacy
-
-* **No real individuals.** All 600 patient records are synthetic, generated from a seeded random process. Patient IDs (`P0001` ...) are sequential labels with no link to any person.
-* **Minimisation.** The schema contains no names, addresses, phone numbers, exact birth dates or other direct identifiers. Age is stored in years, location only as one of five broad regions.
-* **De-identification if real data is used.** Under the HIPAA Safe Harbor method (45 CFR 164.514(b)) 18 identifier types must be removed, and ages above 89 aggregated. India's Digital Personal Data Protection Act, 2023 requires lawful purpose and consent for processing personal data. Any real dataset must be de-identified, and quasi-identifier combinations (age + region + visit date) must be checked for re-identification risk, for example with k-anonymity, before use.
-* **Secure handling.** Real data should never be committed to a public repository. `.gitignore` excludes any file placed under `data/private/`.
+* The Pima Indians Diabetes dataset is **anonymised**: it has no names, addresses, identifiers or dates, only eight clinical measurements and an outcome per row. No attempt was made, or should be made, to identify any individual.
+* The data describe a specific community (women of Pima Indian heritage). Even anonymised data about a small, identifiable community can stigmatise it, so results are reported only as sample-level statistics.
+* The project handles only this public dataset. Any dataset with personal health information would first have to be de-identified and handled under the law that applies to it, and must not be committed to a public repository. `.gitignore` excludes `data/private/` for that purpose.
 
 ## 2. Licensing and attribution
-
-* The simulated dataset and all source code are original work released under the **MIT Licence**.
-* The WHO BMI cut-offs and standard statistical methods are published scientific knowledge and are cited in `docs/design_document.md`.
-* If a public dataset is substituted (for example from the UCI Machine Learning Repository or Kaggle), the user must read and comply with its licence, cite the original authors and record the source and retrieval date.
+* Source: Pima Indians Diabetes Database, NIDDK; citation: Smith et al. (1988), given in the README. The copy used was downloaded from the public `plotly/datasets` GitHub repository on 20 November 2026; the dataset is also available from the UCI Machine Learning Repository.
+* The dataset keeps its original terms of use. Anyone re-using it should check and follow the licence stated by the repository they download it from, and cite the original authors.
+* The source code in this repository is original work under the MIT Licence.
 
 ## 3. Responsible data usage
-
-* **Synthetic data is not evidence.** Associations in the output (for example, smoking and cholesterol) were *programmed into* the simulator. They demonstrate that the pipeline works; they must not be cited as medical findings.
-* **Correlation is not causation.** Reports describe associations only.
-* **Transparent cleaning.** Every deletion, coercion and imputation is counted and reported, so no data is silently altered. Rows missing a diagnosis are dropped, not guessed, to avoid fabricating clinical outcomes.
-* **Bias and representativeness.** The simulated population is a single-year, five-region cohort with simplified gender categories. Real health data often under-represents minority groups, and models trained on it can perform worse for them. Class imbalance (about 66 % healthy) must be handled carefully in any predictive use.
-* **Not for clinical decisions.** This tool is educational and must not be used for diagnosis or treatment.
-* **Reproducibility as accountability.** Fixed seeds, pinned dependencies, tests and version control let others verify and challenge the results.
+* **Not for clinical use.** This is an educational analysis; it must not be used for diagnosis or treatment decisions.
+* **No over-generalisation.** All 768 patients are women aged 21+ from one population; conclusions do not apply to men, other age groups or other populations.
+* **Correlation is not causation.** The report describes associations only.
+* **Transparent cleaning.** Every nullified and imputed value is counted and reported, and the hidden-missing-data assumption (zero means "not measured" for glucose, blood pressure, skin thickness, insulin and BMI) is stated openly. Imputation of large shares of insulin and skin thickness is flagged as a limitation, and statistics are computed from observed values only.
+* **Class imbalance.** About 65% of patients are non-diabetic; accuracy alone would be a misleading measure in any future predictive use.
+* **Reproducibility.** The data, code, tests and instructions are provided so others can verify the results.
