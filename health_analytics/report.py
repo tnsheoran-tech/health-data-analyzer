@@ -76,18 +76,22 @@ def build_summary_report(
     missing_before = sum(before["missing_values"].values())
 
     actions = [
-        ("Exact duplicate patient records removed",
+        ("Duplicate records removed",
          preprocessing_report["duplicates_removed"]),
-        ("Text entries in numeric columns converted to missing",
+        ("Non-numeric entries converted to missing",
          sum(preprocessing_report["coerced_to_missing"].values())),
-        ("Impossible values (outside plausible range) nullified",
+        ("Impossible values (incl. zeros recorded as missing) nullified",
          sum(preprocessing_report["invalid_values_removed"].values())),
-        ("Unrecognised category labels set to missing",
-         sum(preprocessing_report["unmapped_categories"].values())),
-        ("Rows dropped for missing patient ID / diagnosis",
+        ("Rows dropped for missing outcome label",
          preprocessing_report["rows_dropped_missing_key"]),
-        ("Missing values imputed (median / mode)",
+        ("Missing values imputed (column median)",
          sum(preprocessing_report["values_imputed"].values())),
+    ]
+    imputed = preprocessing_report["values_imputed"]
+    n_after = after["n_rows"]
+    imputed_rows = [
+        f"| {col.replace('_', ' ')} | {n} | {n / n_after * 100:.1f}% |"
+        for col, n in imputed.items() if n
     ]
 
     parts = [
@@ -108,7 +112,14 @@ def build_summary_report(
             ["| Action | Count |", "|---|---|"]
             + [f"| {name} | {count} |" for name, count in actions]
         ),
+        "\n".join(
+            ["**Values imputed per column**", "",
+             "| Column | Imputed | Share of records |", "|---|---|---|"]
+            + imputed_rows
+        ),
         "## 3. Descriptive statistics",
+        "Computed from observed values only (imputed values excluded), so "
+        "`count` shows how many real measurements each variable has.",
         dataframe_to_markdown(statistics, "variable"),
         "## 4. Frequency distributions",
     ]
@@ -123,10 +134,12 @@ def build_summary_report(
         parts.append(f"**{title}**\n\n![{title}]({rel})")
     parts += [
         "## 7. Notes and limitations",
-        "- The data are simulated; findings illustrate the method and do "
-        "not describe any real population.\n"
-        "- Median/mode imputation preserves sample size but understates "
-        "variability.",
+        "- Findings describe this sample (women of Pima Indian heritage, "
+        "aged 21+) and must not be generalised to other populations.\n"
+        "- Median imputation preserves sample size but understates "
+        "variability, especially for insulin and skin thickness where a "
+        "large share of values was missing.\n"
+        "- Correlation does not imply causation.",
     ]
     return "\n\n".join(parts) + "\n"
 

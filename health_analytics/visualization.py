@@ -3,7 +3,7 @@
 Design rules applied to every chart (see docs/design_document.md):
 
 * one colour per entity, assigned in a fixed order from a colour-blind-safe
-  categorical palette, so a diagnosis has the same colour in every figure;
+  categorical palette, so each outcome has the same colour in every figure;
 * single-hue bars/lines for single measures, a blue-grey-red diverging map
   for correlations (two hues around a neutral midpoint);
 * thin marks, recessive gridlines, direct labels instead of legends where
@@ -22,10 +22,9 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 
-from health_analytics.config import DIAGNOSES, NUMERIC_COLUMNS  # noqa: E402
+from health_analytics.config import AGE_LABELS, MEASURE_COLUMNS  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +36,8 @@ AXIS = "#c3c2b7"
 NEUTRAL_MID = "#f0efec"
 BLUE = "#2a78d6"
 
-# Fixed entity -> colour assignment (categorical slots 1-4 in order).
-DIAGNOSIS_COLORS = dict(
-    zip(DIAGNOSES, ("#2a78d6", "#eb6834", "#1baf7a", "#eda100"))
-)
+# Fixed entity -> colour assignment (categorical slots 1-2 in order).
+OUTCOME_COLORS = {"Non-diabetic": "#2a78d6", "Diabetic": "#eb6834"}
 
 DIVERGING = LinearSegmentedColormap.from_list(
     "blue_neutral_red", ["#184f95", NEUTRAL_MID, "#e34948"]
@@ -85,6 +82,38 @@ def _require(df, columns):
         raise ValueError(f"Cannot plot; missing column(s): {missing}")
 
 
+def plot_outcome_frequency(df, path):
+    """Bar chart of diabetic versus non-diabetic patient counts.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Cleaned data with an ``outcome_label`` column.
+    path : str or pathlib.Path
+        Output PNG path.
+
+    Returns
+    -------
+    pathlib.Path
+        The saved file.
+    """
+    _require(df, ["outcome_label"])
+    order = list(OUTCOME_COLORS)
+    counts = df["outcome_label"].value_counts().reindex(order, fill_value=0)
+    fig, ax = _prepare_axes(figsize=(6.5, 5))
+    bars = ax.bar(counts.index, counts.values, width=0.55,
+                  color=[OUTCOME_COLORS[k] for k in counts.index])
+    total = counts.sum()
+    for bar, value in zip(bars, counts.values):
+        ax.text(bar.get_x() + bar.get_width() / 2, value + total * 0.01,
+                f"{value} ({value / total * 100:.1f}%)", ha="center",
+                va="bottom", fontsize=9.5, color=INK)
+    ax.set_ylim(0, counts.max() * 1.12)
+    return _finish(fig, ax, "Diabetes outcome frequency",
+                   "Number of patients per outcome", "Outcome",
+                   "Number of patients", path)
+
+
 def plot_age_distribution(df, path):
     """Histogram of patient ages with mean and median markers.
 
@@ -102,7 +131,7 @@ def plot_age_distribution(df, path):
     """
     _require(df, ["age"])
     fig, ax = _prepare_axes()
-    ax.hist(df["age"], bins=range(15, 96, 5), color=BLUE,
+    ax.hist(df["age"], bins=range(20, 86, 5), color=BLUE,
             edgecolor=SURFACE, linewidth=1.5)
     mean, median = df["age"].mean(), df["age"].median()
     ax.axvline(mean, color=INK, linewidth=1.5, linestyle="-")
@@ -117,13 +146,13 @@ def plot_age_distribution(df, path):
                    "Number of patients", path)
 
 
-def plot_diagnosis_frequency(df, path):
-    """Bar chart of diagnosis counts, labelled with count and percentage.
+def plot_glucose_by_outcome(df, path):
+    """Box plot of plasma glucose for each outcome group.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        Cleaned data with a ``diagnosis`` column.
+        Cleaned data with ``outcome_label`` and ``glucose``.
     path : str or pathlib.Path
         Output PNG path.
 
@@ -132,29 +161,34 @@ def plot_diagnosis_frequency(df, path):
     pathlib.Path
         The saved file.
     """
-    _require(df, ["diagnosis"])
-    counts = df["diagnosis"].value_counts().reindex(DIAGNOSES, fill_value=0)
-    fig, ax = _prepare_axes()
-    bars = ax.bar(counts.index, counts.values, width=0.6,
-                  color=[DIAGNOSIS_COLORS[d] for d in counts.index])
-    total = counts.sum()
-    for bar, value in zip(bars, counts.values):
-        ax.text(bar.get_x() + bar.get_width() / 2, value + total * 0.005,
-                f"{value} ({value / total * 100:.1f}%)", ha="center",
-                va="bottom", fontsize=9, color=INK)
-    ax.set_ylim(0, counts.max() * 1.12)
-    return _finish(fig, ax, "Diagnosis frequency",
-                   "Number of patients per recorded diagnosis", "Diagnosis",
-                   "Number of patients", path)
+    _require(df, ["outcome_label", "glucose"])
+    order = list(OUTCOME_COLORS)
+    groups = [df.loc[df["outcome_label"] == k, "glucose"] for k in order]
+    fig, ax = _prepare_axes(figsize=(6.5, 5))
+    box = ax.boxplot(
+        groups, tick_labels=order, patch_artist=True, widths=0.5,
+        medianprops={"color": INK, "linewidth": 2},
+        whiskerprops={"color": INK_SECONDARY},
+        capprops={"color": INK_SECONDARY},
+        flierprops={"marker": "o", "markersize": 3,
+                    "markeredgecolor": INK_SECONDARY},
+    )
+    for patch, key in zip(box["boxes"], order):
+        patch.set_facecolor(OUTCOME_COLORS[key])
+        patch.set_edgecolor(SURFACE)
+    ax.xaxis.grid(False)
+    return _finish(fig, ax, "Glucose by diabetes outcome",
+                   "Line = median; box = middle 50% of patients", "Outcome",
+                   "Plasma glucose (mg/dL)", path)
 
 
 def plot_bmi_vs_glucose(df, path):
-    """Scatter plot of BMI against fasting glucose with a linear trend.
+    """Scatter plot of BMI against glucose, coloured by outcome.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        Cleaned data with ``bmi`` and ``glucose`` columns.
+        Cleaned data with ``bmi``, ``glucose`` and ``outcome_label``.
     path : str or pathlib.Path
         Output PNG path.
 
@@ -163,45 +197,45 @@ def plot_bmi_vs_glucose(df, path):
     pathlib.Path
         The saved file.
     """
-    _require(df, ["bmi", "glucose"])
+    _require(df, ["bmi", "glucose", "outcome_label"])
     fig, ax = _prepare_axes()
-    ax.scatter(df["bmi"], df["glucose"], s=22, color=BLUE, alpha=0.55,
-               edgecolors=SURFACE, linewidths=0.6)
-    slope, intercept = np.polyfit(df["bmi"], df["glucose"], 1)
-    xs = np.array([df["bmi"].min(), df["bmi"].max()])
-    ax.plot(xs, slope * xs + intercept, color=INK, linewidth=2)
+    for label, colour in OUTCOME_COLORS.items():
+        sub = df[df["outcome_label"] == label]
+        ax.scatter(sub["bmi"], sub["glucose"], s=22, color=colour,
+                   alpha=0.6, edgecolors=SURFACE, linewidths=0.6,
+                   label=label)
     r = df["bmi"].corr(df["glucose"])
-    label = f"Trend: +{slope:.2f} mg/dL per BMI unit (r = {r:.2f})"
-    ax.text(0.02, 0.96, label,
-            transform=ax.transAxes, fontsize=9, color=INK, va="top")
+    ax.legend(frameon=False, loc="lower right", fontsize=9,
+              labelcolor=INK_SECONDARY)
     ax.xaxis.grid(False)
-    return _finish(fig, ax, "Higher BMI goes with higher glucose",
-                   "Each point is one patient", "BMI (kg/m²)",
+    return _finish(fig, ax, "BMI and glucose by outcome",
+                   f"Each point is one patient; BMI-glucose r = {r:.2f}",
+                   "BMI (kg/m\u00b2)",
                    "Glucose (mg/dL)", path)
 
 
-def plot_correlation_heatmap(df, path, columns=NUMERIC_COLUMNS):
+def plot_correlation_heatmap(df, path, columns=MEASURE_COLUMNS):
     """Heat map of Pearson correlations on a diverging colour scale.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        Cleaned data.
+        Cleaned data with the measurement columns and ``outcome``.
     path : str or pathlib.Path
         Output PNG path.
     columns : iterable of str
-        Numeric columns to correlate.
+        Numeric columns to correlate (``outcome`` is appended).
 
     Returns
     -------
     pathlib.Path
         The saved file.
     """
-    columns = list(columns)
+    columns = list(columns) + ["outcome"]
     _require(df, columns)
     corr = df[columns].corr().to_numpy()
     labels = [c.replace("_", " ") for c in columns]
-    fig, ax = _prepare_axes(figsize=(8, 6.5))
+    fig, ax = _prepare_axes(figsize=(8.5, 7))
     ax.grid(False)
     image = ax.imshow(corr, cmap=DIVERGING, vmin=-1, vmax=1)
     ax.set_xticks(range(len(columns)), labels, rotation=40, ha="right")
@@ -216,17 +250,17 @@ def plot_correlation_heatmap(df, path, columns=NUMERIC_COLUMNS):
     colorbar = fig.colorbar(image, ax=ax, fraction=0.046, pad=0.03)
     colorbar.outline.set_visible(False)
     colorbar.ax.tick_params(colors=INK_SECONDARY, labelsize=8)
-    return _finish(fig, ax, "Correlation between clinical measures",
+    return _finish(fig, ax, "Correlation between measurements",
                    "Pearson r; blue = negative, red = positive", "", "", path)
 
 
-def plot_bp_by_diagnosis(df, path):
-    """Box plot of systolic blood pressure for each diagnosis.
+def plot_diabetes_rate_by_age(df, path):
+    """Bar chart of the percentage of diabetic patients in each age group.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        Cleaned data with ``diagnosis`` and ``systolic_bp``.
+        Cleaned data with ``age_group`` and ``outcome``.
     path : str or pathlib.Path
         Output PNG path.
 
@@ -235,60 +269,20 @@ def plot_bp_by_diagnosis(df, path):
     pathlib.Path
         The saved file.
     """
-    _require(df, ["diagnosis", "systolic_bp"])
-    groups = [df.loc[df["diagnosis"] == d, "systolic_bp"] for d in DIAGNOSES]
-    fig, ax = _prepare_axes()
-    box = ax.boxplot(
-        groups, tick_labels=DIAGNOSES, patch_artist=True, widths=0.55,
-        medianprops={"color": INK, "linewidth": 2},
-        whiskerprops={"color": INK_SECONDARY},
-        capprops={"color": INK_SECONDARY},
-        flierprops={"marker": "o", "markersize": 3,
-                    "markeredgecolor": INK_SECONDARY},
-    )
-    for patch, diagnosis in zip(box["boxes"], DIAGNOSES):
-        patch.set_facecolor(DIAGNOSIS_COLORS[diagnosis])
-        patch.set_edgecolor(SURFACE)
-    ax.xaxis.grid(False)
-    return _finish(fig, ax, "Systolic blood pressure by diagnosis",
-                   "Line = median; box = middle 50% of patients", "Diagnosis",
-                   "Systolic BP (mmHg)", path)
-
-
-def plot_monthly_visits(df, path):
-    """Line chart of the number of patient visits recorded per month.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Cleaned data with a datetime ``visit_date`` column.
-    path : str or pathlib.Path
-        Output PNG path.
-
-    Returns
-    -------
-    pathlib.Path
-        The saved file.
-    """
-    _require(df, ["visit_date"])
-    months = df["visit_date"].dt.to_period("M")
-    counts = months.value_counts().sort_index()
-    fig, ax = _prepare_axes()
-    labels = [p.strftime("%b") for p in counts.index]
-    positions = list(range(len(labels)))
-    ax.set_xticks(positions, labels)
-    ax.plot(positions, counts.values, color=BLUE, linewidth=2, marker="o",
-            markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.5)
-    ax.set_ylim(0, counts.max() * 1.2)
-    peak = counts.idxmax().strftime("%b")
-    ax.annotate(f"Peak: {counts.max()} ({peak})",
-                xy=(labels.index(peak), counts.max()), xytext=(0, 10),
-                textcoords="offset points", ha="center", fontsize=9,
-                color=INK)
-    year = counts.index[0].year
-    return _finish(fig, ax, "Patient visits per month",
-                   f"Records by visit date, {year}", "Month",
-                   "Number of visits", path)
+    _require(df, ["age_group", "outcome"])
+    grouped = df.groupby("age_group")["outcome"]
+    rate = (grouped.mean() * 100).reindex(AGE_LABELS)
+    size = grouped.size().reindex(AGE_LABELS)
+    fig, ax = _prepare_axes(figsize=(7.5, 5))
+    bars = ax.bar(rate.index, rate.values, width=0.6, color=BLUE)
+    for bar, value, n in zip(bars, rate.values, size.values):
+        ax.text(bar.get_x() + bar.get_width() / 2, value + 1,
+                f"{value:.1f}%\nn = {n}", ha="center", va="bottom",
+                fontsize=9, color=INK)
+    ax.set_ylim(0, rate.max() * 1.25)
+    return _finish(fig, ax, "Diabetes rate by age group",
+                   "Percentage of patients with diabetes in each age group",
+                   "Age group (years)", "Diabetic patients (%)", path)
 
 
 def generate_all_figures(df, figures_dir):
@@ -297,7 +291,7 @@ def generate_all_figures(df, figures_dir):
     Parameters
     ----------
     df : pandas.DataFrame
-        Cleaned data including all required columns.
+        Cleaned data including derived features.
     figures_dir : str or pathlib.Path
         Destination directory (created if missing).
 
@@ -308,12 +302,12 @@ def generate_all_figures(df, figures_dir):
     """
     figures_dir = Path(figures_dir)
     plotters = {
+        "outcome_frequency": plot_outcome_frequency,
         "age_distribution": plot_age_distribution,
-        "diagnosis_frequency": plot_diagnosis_frequency,
+        "glucose_by_outcome": plot_glucose_by_outcome,
         "bmi_vs_glucose": plot_bmi_vs_glucose,
         "correlation_heatmap": plot_correlation_heatmap,
-        "bp_by_diagnosis": plot_bp_by_diagnosis,
-        "monthly_visits": plot_monthly_visits,
+        "diabetes_rate_by_age": plot_diabetes_rate_by_age,
     }
     return {
         name: func(df, figures_dir / f"{name}.png")
