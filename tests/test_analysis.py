@@ -6,9 +6,9 @@ import pytest
 
 from health_analytics.analysis import (
     correlation_matrix,
-    detect_outliers_iqr,
     frequency_distribution,
     group_summary,
+    outcome_rate_by_group,
     summary_statistics,
 )
 
@@ -24,6 +24,14 @@ def test_summary_statistics_match_known_values():
     assert stats["std"] == pytest.approx(np.std(df["x"], ddof=1), abs=0.01)
 
 
+def test_statistics_ignore_missing_values():
+    """Observed-only statistics count only real values."""
+    df = pd.DataFrame({"x": [1.0, np.nan, 3.0]})
+    stats = summary_statistics(df, ["x"]).loc["x"]
+    assert stats["count"] == 2
+    assert stats["mean"] == 2.0
+
+
 def test_frequency_distribution_percentages_sum_to_100():
     """Counts are correct and percentages total 100."""
     df = pd.DataFrame({"c": ["a", "a", "b", "a"]})
@@ -31,6 +39,13 @@ def test_frequency_distribution_percentages_sum_to_100():
     assert freq.loc["a", "count"] == 3
     assert freq.loc["a", "percent"] == 75.0
     assert freq["percent"].sum() == pytest.approx(100.0)
+
+
+def test_real_data_outcome_split(clean_df):
+    """The real dataset has 268 diabetic and 500 non-diabetic patients."""
+    freq = frequency_distribution(clean_df, "outcome_label")
+    assert freq.loc["Diabetic", "count"] == 268
+    assert freq.loc["Non-diabetic", "count"] == 500
 
 
 def test_unknown_column_raises_value_error(clean_df):
@@ -43,19 +58,22 @@ def test_unknown_column_raises_value_error(clean_df):
 
 def test_group_summary(clean_df):
     """Group means are computed per category."""
-    out = group_summary(clean_df, "smoker", "cholesterol")
-    assert set(out.index) == {"Yes", "No"}
+    out = group_summary(clean_df, "outcome_label", "glucose")
+    assert set(out.index) == {"Diabetic", "Non-diabetic"}
     assert out["count"].sum() == len(clean_df)
+    assert out.loc["Diabetic", "mean"] > out.loc["Non-diabetic", "mean"]
+
+
+def test_outcome_rate_by_group():
+    """Diabetes percentage per group is computed correctly."""
+    df = pd.DataFrame({"g": ["a", "a", "b", "b"], "outcome": [1, 0, 1, 1]})
+    out = outcome_rate_by_group(df, "g")
+    assert out.loc["a", "diabetic_percent"] == 50.0
+    assert out.loc["b", "diabetic_percent"] == 100.0
 
 
 def test_correlation_matrix_is_symmetric_with_unit_diagonal(clean_df):
     """Pearson matrices are symmetric with ones on the diagonal."""
-    corr = correlation_matrix(clean_df, ["age", "systolic_bp", "bmi"])
+    corr = correlation_matrix(clean_df, ["age", "glucose", "bmi"])
     assert np.allclose(np.diag(corr), 1.0)
     assert np.allclose(corr, corr.T)
-
-
-def test_outlier_detection_flags_extreme_value():
-    """A value far outside the IQR fences is counted as an outlier."""
-    series = pd.Series([10, 11, 12, 11, 10, 12, 11, 500])
-    assert detect_outliers_iqr(series)["n_outliers"] == 1
