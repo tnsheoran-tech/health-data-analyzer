@@ -1,0 +1,37 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.18, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/claude/health-data-analyzer
+plugins: platformdirs-4.13.5, anyio-4.15.1
+collecting ... collected 28 items
+
+tests/test_analysis.py::test_summary_statistics_match_known_values PASSED [  3%]
+tests/test_analysis.py::test_frequency_distribution_percentages_sum_to_100 PASSED [  7%]
+tests/test_analysis.py::test_unknown_column_raises_value_error PASSED    [ 10%]
+tests/test_analysis.py::test_group_summary PASSED                        [ 14%]
+tests/test_analysis.py::test_correlation_matrix_is_symmetric_with_unit_diagonal PASSED [ 17%]
+tests/test_analysis.py::test_outlier_detection_flags_extreme_value PASSED [ 21%]
+tests/test_data_loader.py::test_load_valid_csv PASSED                    [ 25%]
+tests/test_data_loader.py::test_load_valid_json PASSED                   [ 28%]
+tests/test_data_loader.py::test_missing_file_raises PASSED               [ 32%]
+tests/test_data_loader.py::test_unsupported_extension_raises PASSED      [ 35%]
+tests/test_data_loader.py::test_missing_required_columns_raises PASSED   [ 39%]
+tests/test_data_loader.py::test_empty_file_raises PASSED                 [ 42%]
+tests/test_data_loader.py::test_column_names_standardised PASSED         [ 46%]
+tests/test_pipeline.py::test_generator_is_reproducible PASSED            [ 50%]
+tests/test_pipeline.py::test_dataset_meets_assignment_minimums PASSED    [ 53%]
+tests/test_pipeline.py::test_pipeline_writes_all_outputs PASSED          [ 57%]
+tests/test_preprocessing.py::test_valid_data_passes_through_unchanged PASSED [ 60%]
+tests/test_preprocessing.py::test_derived_features_added PASSED          [ 64%]
+tests/test_preprocessing.py::test_median_imputation_fills_numeric_gap PASSED [ 67%]
+tests/test_preprocessing.py::test_mode_imputation_fills_category_gap PASSED [ 71%]
+tests/test_preprocessing.py::test_all_missing_column_cannot_be_imputed PASSED [ 75%]
+tests/test_preprocessing.py::test_pipeline_removes_all_missing_values PASSED [ 78%]
+tests/test_preprocessing.py::test_row_without_diagnosis_is_dropped PASSED [ 82%]
+tests/test_preprocessing.py::test_text_in_numeric_column_is_handled PASSED [ 85%]
+tests/test_preprocessing.py::test_impossible_values_are_nullified PASSED [ 89%]
+tests/test_preprocessing.py::test_inconsistent_categories_are_standardised PASSED [ 92%]
+tests/test_preprocessing.py::test_duplicates_are_removed PASSED          [ 96%]
+tests/test_preprocessing.py::test_profile_counts_missing_and_duplicates PASSED [100%]
+
+============================== 28 passed in 1.07s ==============================
