@@ -2,9 +2,9 @@
 
 Examples
 --------
-Generate the simulated dataset (if missing) and run everything::
+Download the public dataset (if missing) and run everything::
 
-    python main.py --generate-data
+    python main.py --download
 
 Analyse your own file::
 
@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 from health_analytics.config import DEFAULT_INPUT, DEFAULT_OUTPUT
-from health_analytics.data_generator import generate_dataset
+from health_analytics.data_download import download_dataset
 from health_analytics.data_loader import DataLoadError
 from health_analytics.pipeline import run_pipeline
 
@@ -31,12 +31,8 @@ def build_parser():
                         help="CSV or JSON dataset (default: %(default)s)")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT),
                         help="output directory (default: %(default)s)")
-    parser.add_argument("--generate-data", action="store_true",
-                        help="create the simulated dataset if it is missing")
-    parser.add_argument("--seed", type=int, default=42,
-                        help="seed used when generating data")
-    parser.add_argument("--n-records", type=int, default=600,
-                        help="unique patients to simulate")
+    parser.add_argument("--download", action="store_true",
+                        help="download the public dataset if it is missing")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="show detailed progress logging")
     return parser
@@ -52,11 +48,13 @@ def main(argv=None):
 
     input_path = Path(args.input)
     try:
-        if args.generate_data and not input_path.exists():
-            generate_dataset(input_path, args.n_records, args.seed)
-            print(f"Generated simulated dataset: {input_path}")
+        if args.download and not input_path.exists():
+            download_dataset(input_path)
+            print(f"Downloaded dataset: {input_path}")
         results = run_pipeline(input_path, args.output)
-    except (FileNotFoundError, ValueError, DataLoadError) as exc:
+    except (
+        FileNotFoundError, ValueError, DataLoadError, ConnectionError
+    ) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

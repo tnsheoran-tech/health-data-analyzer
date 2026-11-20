@@ -23,14 +23,18 @@ def standardise_column_names(columns):
     Parameters
     ----------
     columns : iterable
-        Raw column labels, for example ``" Systolic BP "``.
+        Raw column labels, for example ``"BloodPressure"``.
 
     Returns
     -------
     list of str
-        Cleaned labels, for example ``"systolic_bp"``.
+        Cleaned labels, for example ``"blood_pressure"``.
     """
-    return [re.sub(r"\s+", "_", str(c).strip().lower()) for c in columns]
+    cleaned = []
+    for column in columns:
+        text = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", str(column).strip())
+        cleaned.append(re.sub(r"\s+", "_", text).lower())
+    return cleaned
 
 
 def validate_schema(df, required_columns=REQUIRED_COLUMNS):

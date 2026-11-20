@@ -9,20 +9,25 @@ from health_analytics.data_loader import (
 )
 
 
-def test_load_valid_csv(clean_df, tmp_path):
-    """A valid CSV loads with all rows and required columns."""
+def test_load_real_dataset_meets_assignment_minimums(real_df):
+    """Real data: at least 200 records and five attributes."""
+    assert len(real_df) >= 200
+    assert real_df.shape[1] >= 5
+    assert "blood_pressure" in real_df.columns
+
+
+def test_load_valid_csv(real_df, tmp_path):
+    """A valid CSV round-trips with all rows."""
     path = tmp_path / "ok.csv"
-    clean_df.to_csv(path, index=False)
-    loaded = load_dataset(path)
-    assert len(loaded) == len(clean_df)
-    assert "systolic_bp" in loaded.columns
+    real_df.to_csv(path, index=False)
+    assert len(load_dataset(path)) == len(real_df)
 
 
-def test_load_valid_json(clean_df, tmp_path):
+def test_load_valid_json(real_df, tmp_path):
     """JSON (records orientation) is supported as well as CSV."""
     path = tmp_path / "ok.json"
-    clean_df.to_json(path, orient="records")
-    assert len(load_dataset(path)) == len(clean_df)
+    real_df.to_json(path, orient="records")
+    assert len(load_dataset(path)) == len(real_df)
 
 
 def test_missing_file_raises(tmp_path):
@@ -39,25 +44,24 @@ def test_unsupported_extension_raises(tmp_path):
         load_dataset(path)
 
 
-def test_missing_required_columns_raises(clean_df, tmp_path):
+def test_missing_required_columns_raises(real_df, tmp_path):
     """Invalid schema (missing column) raises DataLoadError."""
     path = tmp_path / "bad.csv"
-    clean_df.drop(columns=["glucose"]).to_csv(path, index=False)
+    real_df.drop(columns=["glucose"]).to_csv(path, index=False)
     with pytest.raises(DataLoadError, match="glucose"):
         load_dataset(path)
 
 
-def test_empty_file_raises(clean_df, tmp_path):
+def test_empty_file_raises(real_df, tmp_path):
     """A header-only file is rejected as empty."""
     path = tmp_path / "empty.csv"
-    clean_df.head(0).to_csv(path, index=False)
+    real_df.head(0).to_csv(path, index=False)
     with pytest.raises(DataLoadError, match="no records"):
         load_dataset(path)
 
 
 def test_column_names_standardised():
-    """Headers are lower-cased with underscores."""
-    assert standardise_column_names([" Systolic BP ", "Age"]) == [
-        "systolic_bp",
-        "age",
-    ]
+    """CamelCase and spaced headers become snake_case."""
+    assert standardise_column_names(
+        ["BloodPressure", "DiabetesPedigreeFunction", " Age ", "BMI"]
+    ) == ["blood_pressure", "diabetes_pedigree_function", "age", "bmi"]

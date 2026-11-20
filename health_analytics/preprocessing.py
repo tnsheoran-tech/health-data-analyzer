@@ -2,16 +2,15 @@
 
 The cleaning order matters and is encoded in :func:`preprocess_dataset`:
 
-1. coerce numeric columns (text tokens -> missing)
-2. normalise categorical spellings
-3. parse dates
-4. nullify physically impossible values
-5. remove duplicate patients
-6. drop rows lacking a key field (ID / diagnosis)
-7. impute remaining gaps (median for numbers, mode for categories)
-8. derive analysis features
+1. coerce columns to numbers (inconsistent data types -> missing)
+2. nullify physiologically impossible values (including the zeros that this
+   dataset uses to record a missing measurement)
+3. remove duplicate records
+4. drop rows lacking the outcome label
+5. impute remaining gaps with the column median
+6. derive analysis features
 
-Duplicates are removed *before* imputation so repeated rows do not bias the
+Duplicates are removed *before* imputation so repeated rows cannot bias the
 medians used to fill gaps.
 """
 
@@ -25,16 +24,14 @@ from health_analytics.config import (
     AGE_LABELS,
     BMI_BINS,
     BMI_LABELS,
-    CATEGORY_MAPPINGS,
     INTEGER_COLUMNS,
     KEY_COLUMNS,
     NUMERIC_COLUMNS,
+    OUTCOME_LABELS,
     VALID_RANGES,
 )
 
 logger = logging.getLogger(__name__)
-
-IMPUTE_CATEGORICAL = ("gender", "region", "smoker")
 
 
 def profile_data_quality(df):
@@ -93,59 +90,8 @@ def coerce_numeric_columns(df, columns=NUMERIC_COLUMNS):
     return out, newly_missing
 
 
-def normalise_categories(df, mappings=CATEGORY_MAPPINGS):
-    """Map inconsistent category spellings to canonical labels.
-
-    ``" male "``, ``"M"`` and ``"MALE"`` all become ``"Male"``. Values with
-    no mapping become missing and are counted.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Input frame (not modified).
-    mappings : dict
-        ``{column: {lower_case_token: canonical_label}}``.
-
-    Returns
-    -------
-    tuple of (pandas.DataFrame, dict)
-        The cleaned frame and the number of unmapped values per column.
-    """
-    out = df.copy()
-    unmapped = {}
-    for col, mapping in mappings.items():
-        if col not in out.columns:
-            continue
-        original_missing = int(out[col].isna().sum())
-        key = out[col].astype("string").str.strip().str.lower()
-        out[col] = key.map(mapping).astype(object)
-        unmapped[col] = int(out[col].isna().sum()) - original_missing
-    return out, unmapped
-
-
-def parse_dates(df, column="visit_date"):
-    """Parse a date column, converting invalid dates to ``NaT``.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Input frame (not modified).
-    column : str
-        Name of the date column.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy with ``column`` as ``datetime64``.
-    """
-    out = df.copy()
-    if column in out.columns:
-        out[column] = pd.to_datetime(out[column], errors="coerce")
-    return out
-
-
 def flag_invalid_ranges(df, ranges=VALID_RANGES):
-    """Replace physically impossible values with NaN.
+    """Replace physiologically impossible values with NaN.
 
     Parameters
     ----------
@@ -190,7 +136,7 @@ def remove_duplicates(df, subset=None):
 
 
 def drop_rows_missing_keys(df, columns=KEY_COLUMNS):
-    """Drop rows lacking an identifier or outcome label.
+    """Drop rows lacking the outcome label.
 
     Parameters
     ----------
@@ -209,10 +155,8 @@ def drop_rows_missing_keys(df, columns=KEY_COLUMNS):
     return kept, int(len(df) - len(kept))
 
 
-def impute_missing(
-    df, numeric_columns=NUMERIC_COLUMNS, categorical_columns=IMPUTE_CATEGORICAL
-):
-    """Fill remaining gaps: median for numbers, mode for categories.
+def impute_missing(df, columns=NUMERIC_COLUMNS):
+    """Fill remaining gaps with the column median.
 
     The median is used because it is robust to the skew and outliers
     common in clinical measurements.
@@ -221,7 +165,7 @@ def impute_missing(
     ----------
     df : pandas.DataFrame
         Input frame (not modified).
-    numeric_columns, categorical_columns : iterable of str
+    columns : iterable of str
         Columns to impute.
 
     Returns
@@ -236,7 +180,7 @@ def impute_missing(
     """
     out = df.copy()
     filled = {}
-    for col in list(numeric_columns) + list(categorical_columns):
+    for col in columns:
         if col not in out.columns:
             continue
         n_missing = int(out[col].isna().sum())
@@ -245,22 +189,17 @@ def impute_missing(
             continue
         if n_missing == len(out):
             raise ValueError(f"Cannot impute column '{col}': all missing")
-        if col in numeric_columns:
-            fill = out[col].median()
-        else:
-            fill = out[col].mode(dropna=True).iloc[0]
-        out[col] = out[col].fillna(fill)
+        out[col] = out[col].fillna(out[col].median())
     return out, filled
 
 
 def add_derived_features(df):
-    """Add ``bmi_category``, ``age_group`` and ``pulse_pressure`` columns.
+    """Add ``bmi_category``, ``age_group`` and ``outcome_label`` columns.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        Cleaned frame with ``bmi``, ``age``, ``systolic_bp`` and
-        ``diastolic_bp``.
+        Cleaned frame with ``bmi``, ``age`` and ``outcome``.
 
     Returns
     -------
@@ -274,7 +213,7 @@ def add_derived_features(df):
     out["age_group"] = pd.cut(
         out["age"], bins=list(AGE_BINS), labels=list(AGE_LABELS)
     ).astype(str)
-    out["pulse_pressure"] = out["systolic_bp"] - out["diastolic_bp"]
+    out["outcome_label"] = out["outcome"].map(OUTCOME_LABELS)
     return out
 
 
@@ -290,19 +229,22 @@ def preprocess_dataset(df):
     -------
     tuple of (pandas.DataFrame, dict)
         The analysis-ready frame (no missing values) and an audit report
-        describing every change made.
+        describing every change made. ``report["observed_data"]`` holds the
+        cleaned frame *before* imputation.
     """
     report = {"profile_before": profile_data_quality(df)}
 
     clean, report["coerced_to_missing"] = coerce_numeric_columns(df)
-    clean, report["unmapped_categories"] = normalise_categories(clean)
-    clean = parse_dates(clean)
     clean, report["invalid_values_removed"] = flag_invalid_ranges(clean)
+    report["missing_before_imputation"] = {
+        c: int(v) for c, v in clean.isna().sum().items() if v
+    }
 
-    clean, report["duplicates_removed"] = remove_duplicates(
-        clean, subset=["patient_id"]
-    )
+    clean, report["duplicates_removed"] = remove_duplicates(clean)
     clean, report["rows_dropped_missing_key"] = drop_rows_missing_keys(clean)
+    # Keep the un-imputed frame: statistics on columns with many missing
+    # values (insulin, skin thickness) are more honest without the fill.
+    report["observed_data"] = clean.copy()
     clean, report["values_imputed"] = impute_missing(clean)
 
     for col in INTEGER_COLUMNS:

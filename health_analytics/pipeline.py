@@ -5,7 +5,7 @@ from pathlib import Path
 
 from health_analytics import analysis
 from health_analytics.config import DEFAULT_INPUT, DEFAULT_OUTPUT
-from health_analytics.config import NUMERIC_COLUMNS
+from health_analytics.config import MEASURE_COLUMNS
 from health_analytics.data_loader import load_dataset
 from health_analytics.preprocessing import preprocess_dataset
 from health_analytics.report import build_summary_report, save_report
@@ -13,14 +13,7 @@ from health_analytics.visualization import generate_all_figures
 
 logger = logging.getLogger(__name__)
 
-FREQUENCY_COLUMNS = (
-    "diagnosis",
-    "gender",
-    "smoker",
-    "region",
-    "bmi_category",
-    "age_group",
-)
+FREQUENCY_COLUMNS = ("outcome_label", "age_group", "bmi_category")
 
 
 def run_pipeline(input_path=DEFAULT_INPUT, output_dir=DEFAULT_OUTPUT):
@@ -28,9 +21,9 @@ def run_pipeline(input_path=DEFAULT_INPUT, output_dir=DEFAULT_OUTPUT):
 
     Output layout under ``output_dir``::
 
-        processed/cleaned_patient_data.csv
+        processed/cleaned_diabetes_data.csv
         tables/summary_statistics.csv, frequency_<column>.csv,
-               correlation_matrix.csv
+               correlation_matrix.csv, diabetes_rate_by_age_group.csv
         figures/*.png
         reports/summary_report.md
 
@@ -58,11 +51,13 @@ def run_pipeline(input_path=DEFAULT_INPUT, output_dir=DEFAULT_OUTPUT):
 
     logger.info("Step 2/5: preprocessing")
     clean, prep_report = preprocess_dataset(raw)
-    clean_path = processed_dir / "cleaned_patient_data.csv"
-    clean.to_csv(clean_path, index=False, date_format="%Y-%m-%d")
+    clean_path = processed_dir / "cleaned_diabetes_data.csv"
+    clean.to_csv(clean_path, index=False)
 
     logger.info("Step 3/5: analysing")
-    stats = analysis.summary_statistics(clean, NUMERIC_COLUMNS)
+    stats = analysis.summary_statistics(
+        prep_report["observed_data"], MEASURE_COLUMNS
+    )
     stats.to_csv(tables_dir / "summary_statistics.csv")
     frequency_tables = {
         col: analysis.frequency_distribution(clean, col)
@@ -72,6 +67,9 @@ def run_pipeline(input_path=DEFAULT_INPUT, output_dir=DEFAULT_OUTPUT):
         table.to_csv(tables_dir / f"frequency_{col}.csv")
     analysis.correlation_matrix(clean).to_csv(
         tables_dir / "correlation_matrix.csv"
+    )
+    analysis.outcome_rate_by_group(clean, "age_group").to_csv(
+        tables_dir / "diabetes_rate_by_age_group.csv"
     )
     findings = analysis.compute_key_findings(clean)
 

@@ -1,110 +1,100 @@
 # Health Data Analysis - Summary Report
 
-*Generated 2026-11-20 from `patient_records.csv`*
+*Generated 2026-11-20 from `diabetes.csv`*
 
 ## 1. Dataset overview
 
-- Raw records: **615** (15 exact duplicates)
-- Attributes: **13**
-- Missing cells before cleaning: **200**
-- Clean records after processing: **588**
+- Raw records: **768** (0 exact duplicates)
+- Attributes: **9**
+- Missing cells before cleaning: **0**
+- Clean records after processing: **768**
 - Missing cells after cleaning: **0**
 
 ## 2. Data-quality actions
 
 | Action | Count |
 |---|---|
-| Exact duplicate patient records removed | 15 |
-| Text entries in numeric columns converted to missing | 16 |
-| Impossible values (outside plausible range) nullified | 7 |
-| Unrecognised category labels set to missing | 0 |
-| Rows dropped for missing patient ID / diagnosis | 12 |
-| Missing values imputed (median / mode) | 201 |
+| Duplicate records removed | 0 |
+| Non-numeric entries converted to missing | 0 |
+| Impossible values (incl. zeros recorded as missing) nullified | 653 |
+| Rows dropped for missing outcome label | 0 |
+| Missing values imputed (column median) | 653 |
+
+**Values imputed per column**
+
+| Column | Imputed | Share of records |
+|---|---|---|
+| glucose | 5 | 0.7% |
+| blood pressure | 36 | 4.7% |
+| skin thickness | 227 | 29.6% |
+| insulin | 374 | 48.7% |
+| bmi | 11 | 1.4% |
 
 ## 3. Descriptive statistics
 
+Computed from observed values only (imputed values excluded), so `count` shows how many real measurements each variable has.
+
 | variable | count | mean | median | std | min | q1 | q3 | max |
 |---|---|---|---|---|---|---|---|---|
-| age | 588 | 47.82 | 48 | 15.1 | 18 | 37 | 57 | 90 |
-| bmi | 588 | 26.6 | 26.5 | 4.43 | 15 | 23.6 | 29.7 | 38.3 |
-| systolic_bp | 588 | 120.1 | 120 | 11.64 | 91 | 111 | 127 | 154 |
-| diastolic_bp | 588 | 73.95 | 74 | 8.25 | 55 | 68 | 80 | 95 |
-| cholesterol | 588 | 192.7 | 193 | 31.01 | 120 | 172 | 212 | 299 |
-| glucose | 588 | 92.95 | 92 | 17.1 | 65 | 80 | 104 | 139 |
-| annual_visits | 588 | 1.82 | 1 | 1.86 | 0 | 0 | 3 | 13 |
+| pregnancies | 768 | 3.85 | 3 | 3.37 | 0 | 1 | 6 | 17 |
+| glucose | 763 | 121.69 | 117 | 30.54 | 44 | 99 | 141 | 199 |
+| blood_pressure | 732 | 72.47 | 72 | 12.26 | 30 | 64 | 80 | 122 |
+| skin_thickness | 541 | 29.15 | 29 | 10.48 | 7 | 22 | 36 | 99 |
+| insulin | 394 | 155.55 | 125 | 118.78 | 14 | 76.25 | 190 | 846 |
+| bmi | 757 | 32.46 | 32.3 | 6.92 | 18.2 | 27.5 | 36.6 | 67.1 |
+| diabetes_pedigree_function | 768 | 0.47 | 0.37 | 0.33 | 0.08 | 0.24 | 0.63 | 2.42 |
+| age | 768 | 33.24 | 29 | 11.76 | 21 | 24 | 41 | 81 |
 
 ## 4. Frequency distributions
 
-**Diagnosis**
+**Outcome Label**
 
-| diagnosis | count | percent |
+| outcome_label | count | percent |
 |---|---|---|
-| Healthy | 388 | 65.99 |
-| Diabetes | 81 | 13.78 |
-| Hypertension | 80 | 13.61 |
-| Heart Disease | 39 | 6.63 |
-
-**Gender**
-
-| gender | count | percent |
-|---|---|---|
-| Female | 313 | 53.23 |
-| Male | 275 | 46.77 |
-
-**Smoker**
-
-| smoker | count | percent |
-|---|---|---|
-| No | 454 | 77.21 |
-| Yes | 134 | 22.79 |
-
-**Region**
-
-| region | count | percent |
-|---|---|---|
-| North | 127 | 21.6 |
-| West | 122 | 20.75 |
-| Central | 119 | 20.24 |
-| South | 112 | 19.05 |
-| East | 108 | 18.37 |
-
-**Bmi Category**
-
-| bmi_category | count | percent |
-|---|---|---|
-| Overweight | 243 | 41.33 |
-| Normal | 179 | 30.44 |
-| Obese | 140 | 23.81 |
-| Underweight | 26 | 4.42 |
+| Non-diabetic | 500 | 65.1 |
+| Diabetic | 268 | 34.9 |
 
 **Age Group**
 
 | age_group | count | percent |
 |---|---|---|
-| 45-59 | 222 | 37.76 |
-| 30-44 | 169 | 28.74 |
-| 60-74 | 97 | 16.5 |
-| 18-29 | 73 | 12.41 |
-| 75+ | 27 | 4.59 |
+| 21-29 | 396 | 51.56 |
+| 30-39 | 165 | 21.48 |
+| 40-49 | 118 | 15.36 |
+| 50-59 | 57 | 7.42 |
+| 60+ | 32 | 4.17 |
+
+**Bmi Category**
+
+| bmi_category | count | percent |
+|---|---|---|
+| Obese | 476 | 61.98 |
+| Overweight | 180 | 23.44 |
+| Normal | 108 | 14.06 |
+| Underweight | 4 | 0.52 |
 
 ## 5. Key findings
 
-- The cleaned dataset holds 588 unique patients with a mean age of 47.8 years (median 48).
-- 'Healthy' is the most frequent diagnosis (66.0% of patients).
-- Smokers average +8.6 mg/dL cholesterol relative to non-smokers (199.3 vs 190.7).
-- BMI and glucose are positively correlated (r = 0.40); age and systolic blood pressure show r = 0.60.
-- Annual visits are highest for 'Heart Disease' (4.82 per year) and lowest for 'Healthy' (1.04).
-- 23.8% of patients fall in the Obese BMI band.
+- The dataset holds 768 patients with a mean age of 33.2 years; 268 (34.9%) have diabetes.
+- Diabetic patients have a mean glucose of 142.1 mg/dL versus 110.7 for non-diabetic patients.
+- Mean BMI is 35.4 for diabetic and 30.9 for non-diabetic patients.
+- The diabetes rate is highest in age group '50-59' (59.6%) and lowest in '21-29' (21.2%).
+- Glucose has the strongest correlation with diabetes status (r = 0.49); the weakest of all measurements is blood pressure (r = 0.16).
+- 62.0% of patients fall in the Obese BMI band.
 
 ## 6. Figures
+
+**Outcome Frequency**
+
+![Outcome Frequency](../figures/outcome_frequency.png)
 
 **Age Distribution**
 
 ![Age Distribution](../figures/age_distribution.png)
 
-**Diagnosis Frequency**
+**Glucose By Outcome**
 
-![Diagnosis Frequency](../figures/diagnosis_frequency.png)
+![Glucose By Outcome](../figures/glucose_by_outcome.png)
 
 **Bmi Vs Glucose**
 
@@ -114,15 +104,12 @@
 
 ![Correlation Heatmap](../figures/correlation_heatmap.png)
 
-**Bp By Diagnosis**
+**Diabetes Rate By Age**
 
-![Bp By Diagnosis](../figures/bp_by_diagnosis.png)
-
-**Monthly Visits**
-
-![Monthly Visits](../figures/monthly_visits.png)
+![Diabetes Rate By Age](../figures/diabetes_rate_by_age.png)
 
 ## 7. Notes and limitations
 
-- The data are simulated; findings illustrate the method and do not describe any real population.
-- Median/mode imputation preserves sample size but understates variability.
+- Findings describe this sample (women of Pima Indian heritage, aged 21+) and must not be generalised to other populations.
+- Median imputation preserves sample size but understates variability, especially for insulin and skin thickness where a large share of values was missing.
+- Correlation does not imply causation.

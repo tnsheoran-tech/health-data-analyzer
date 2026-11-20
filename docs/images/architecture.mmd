@@ -1,18 +1,18 @@
 flowchart TB
-    A[("Raw dataset<br/>CSV / JSON")] --> B["data_loader<br/>read + schema check"]
-    G["data_generator<br/>seeded simulation"] -.creates.-> A
-    B --> C["preprocessing<br/>types, categories, ranges,<br/>duplicates, imputation"]
-    C --> D["analysis<br/>mean, median, SD, min/max,<br/>frequencies, correlations"]
+    DL["data_download<br/>fetch public CSV"] -.creates.-> A[("Raw dataset<br/>diabetes.csv")]
+    A --> B["data_loader<br/>read CSV / JSON + schema check"]
+    CFG["config<br/>schema, valid ranges, bins"] -.used by.-> B
+    CFG -.-> C
+    PL["pipeline.py + main.py<br/>orchestrator / CLI"] -.controls.-> B
+    B --> C["preprocessing<br/>types, impossible values, duplicates,<br/>imputation, derived features"]
     C --> P[("Processed CSV")]
-    D --> T[("Tables CSV")]
+    C --> D["analysis<br/>mean, median, SD, min/max,<br/>frequencies, correlations"]
     C --> V["visualization<br/>6 Matplotlib charts"]
+    D --> T[("Tables CSV")]
     V --> F[("PNG figures")]
     D --> R["report<br/>Markdown summary"]
     C --> R
     F --> R
     R --> O[("summary_report.md")]
-    CFG["config<br/>schema, ranges, mappings"] -.used by.-> B
-    CFG -.-> C
-    PL["pipeline.py + main.py<br/>orchestrator / CLI"] -.controls.-> B
     classDef store fill:#eef4fc,stroke:#2a78d6;
     class A,P,T,F,O store;

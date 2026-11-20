@@ -4,26 +4,34 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from health_analytics.data_generator import generate_clean_dataset
+from health_analytics.config import DEFAULT_INPUT
+from health_analytics.data_loader import load_dataset
 
 
 @pytest.fixture(scope="session")
-def clean_df():
-    """A reproducible, fully valid 250-row dataset."""
-    return generate_clean_dataset(n_records=250, seed=7)
+def real_df():
+    """The real Pima dataset exactly as loaded (768 rows)."""
+    return load_dataset(DEFAULT_INPUT)
+
+
+@pytest.fixture(scope="session")
+def clean_df(real_df):
+    """The real dataset after the full cleaning pipeline."""
+    from health_analytics.preprocessing import preprocess_dataset
+
+    cleaned, _ = preprocess_dataset(real_df)
+    return cleaned
 
 
 @pytest.fixture
-def messy_df(clean_df):
+def messy_df(real_df):
     """Small raw-style frame containing every kind of quality problem."""
-    df = clean_df.head(12).astype(object).copy()
-    df.loc[0, "bmi"] = np.nan                 # missing numeric
-    df.loc[1, "gender"] = np.nan              # missing category
-    df.loc[2, "age"] = "unknown"              # wrong type
-    df.loc[3, "age"] = "45 yrs"               # recoverable text
-    df.loc[4, "glucose"] = 9999               # impossible value
-    df.loc[5, "gender"] = " male "            # inconsistent spelling
-    df.loc[6, "smoker"] = "Y"                 # abbreviation
-    df.loc[7, "diagnosis"] = np.nan           # missing key field
+    df = real_df.iloc[10:22].astype(object).copy().reset_index(drop=True)
+    df.loc[0, "bmi"] = np.nan             # missing numeric
+    df.loc[1, "age"] = "unknown"          # wrong type
+    df.loc[2, "age"] = "45 yrs"           # recoverable text
+    df.loc[3, "glucose"] = 9999           # impossible value
+    df.loc[4, "insulin"] = 0              # zero recorded as missing
+    df.loc[5, "outcome"] = np.nan         # missing label
     df = pd.concat([df, df.iloc[[8]]], ignore_index=True)  # duplicate
     return df
